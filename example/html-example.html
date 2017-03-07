@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NBB Database</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+  <!--[if lt IE 9]>
+    <script src="https://cdn.jsdelivr.net/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/respond/1.4.2/respond.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+  <pre>
+    <code>
+      <div id="gameschedule" class="gameschedule-table">
+
+      </div>
+    </code>
+  </pre>
+
+
+  <script src="https://cdn.jsdelivr.net/jquery/2.1.3/jquery.min.js"></script>
+
+  <script>
+    var _baseURL = "http://db.basketball.nl/db/json/wedstrijd.pl";
+    $(document).ready(function () {
+      $.getJSON(
+        _baseURL + "?origin=cangeroes3.dd:8083&clb_ID=5",
+        function(json, textStatus, jqXHR ) {
+
+          //alert('server zegt: ' + textStatus);
+          //alert(' er zijn ' + json.aantal_wedstrijden + ' wedstrijden in de lijst');
+          //wedstrijd = json.wedstrijden[0];
+          //alert('de 1e wedstrijd is tussen ploeg ' + wedstrijd.thuis_ploeg + ' en ' + wedstrijd.uit_ploeg);
+
+          drawTable(json);
+        }
+      )
+      function drawTableOutline(weekNumber) {
+        var table = $('<div id="week' + weekNumber + '" class="table table-week"><header class="table-header"><div class="table-cell table-header-label datetime">Datum/Tijd</div><div class="table-cell table-header-label home">Thuisploeg</div><div class="table-cell table-header-label away">Uitploeg</div><div class="table-cell table-header-label score">Uitslag</div><div class="table-cell table-header-label location">Locatie</div></tr></thead></div>')
+        $("#gameschedule").append(table);
+      }
+
+      function drawTable(json) {
+        var weekNumber = 0;
+        var monthNumber = 0;
+
+        for (var i = 0; i < json.aantal_wedstrijden; i++) { //json.aantal_wedstrijden
+          var gameDate = new Date(json.wedstrijden[i].datum);
+          if (monthNumber !== gameDate.getMonth()) {
+            var month = ["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"][gameDate.getMonth()];
+            $("#gameschedule").append("<p class=\"month\">" + month + "</p>");
+            monthNumber = gameDate.getMonth();
+          }
+          if (weekNumber !== getWeek(json.wedstrijden[i].datum)) {
+            $("#gameschedule").append("<p class=\"week\">Week " + getWeek(json.wedstrijden[i].datum) + "</p>");
+            weekNumber = getWeek(json.wedstrijden[i].datum);
+
+            drawTableOutline(getWeek(json.wedstrijden[i].datum));
+          }
+          drawRow(json.wedstrijden[i]);
+        }
+      }
+
+      function drawRow(rowData) {
+        var row = $("<div class=\"table-row\"></div>");
+        $('#week' + getWeek(rowData.datum)).append(row); //this will append tr element to table... keep its reference for a while since we will add cels into it
+        row.append($("<div class=\"table-cell datetime\">" + gameDate(rowData.datum) + "</div>"));
+        row.append($("<div class=\"table-cell home\">" + teamName(rowData.thuis_ploeg) + "</div>"));
+        row.append($("<div class=\"table-cell away\">" + teamName(rowData.uit_ploeg) + "</div>"));
+        row.append($("<div class=\"table-cell score\">" + rowData.score_thuis + " - " + rowData.score_uit + "</div>"));
+        row.append($("<div class=\"table-cell location\">" + rowData.loc_naam + ", " + rowData.loc_plaats + "</div>"));
+      }
+
+      function gameDate(dateString) {
+        var gameDate = new Date(dateString);
+        var gameDay = ["zo","ma","di","wo","do","vr","za"][gameDate.getDay()];
+        var gameMonth = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"][gameDate.getMonth()];
+        var gameMinutes = ( gameDate.getMinutes() < 10 ? "0" : "" ) + gameDate.getMinutes();
+
+        var gameDateReplace = gameDay + " " + gameDate.getDate() + " " + gameMonth + ", " + gameDate.getHours() + ":" + gameMinutes;
+        return gameDateReplace;
+      }
+
+      function teamName(team) {
+        var teamName = team.substring(0,(team.length - 5));
+        var teamCode = team.slice(-4);
+
+        if (teamCode.substring(0,2) === "HS" || teamCode.substring(0,2) === "DS") {
+          teamName = teamName + " " + teamCode.substring(0,2) + "-" + teamCode.substring(3,4);
+        } else if (teamCode.substring(0,1) === "J") {
+          teamName = teamName + " MU1" + teamCode.substring(1,2) + "-" + teamCode.substring(3,4);
+        } else if (teamCode.substring(0,1) === "M") {
+          teamName = teamName + " VU1" + teamCode.substring(1,2) + "-" + teamCode.substring(3,4);
+        } else if (teamCode.substring(0,1) === "X") {
+          teamName = teamName + " Mix U1"+ teamCode.substring(1,2) + "-" + teamCode.substring(3,4);
+        }
+
+        if (teamName.substring(0,9) === "Cangeroes") {
+          teamName = "<strong>" + teamName + "</strong>";
+        } else if (teamName.substring(0,3) === "UVV") {
+          teamName = "UVV S.V.O. " + teamName.substring(21,teamName.length);
+        } else if (teamName.substring(0,5) === "Solar") {
+          teamName = teamName.substring(15,teamName.length);
+        }
+
+        return teamName;
+      }
+
+      function getWeek(date) {
+        if (!(date instanceof Date)) date = new Date(date);
+
+        var nDay = (date.getDay() + 6) % 7;
+        date.setDate(date.getDate() - nDay + 3);
+        var n1stThursday = date.valueOf();
+        date.setMonth(0, 1);
+
+        if (date.getDay() !== 4) {
+          date.setMonth(0, 1 + ((4 - date.getDay()) + 7) % 7);
+        }
+        return 1 + Math.ceil((n1stThursday - date) / 604800000);
+      }
+    });
+
+  </script>
+</body>
+</html>
